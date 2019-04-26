@@ -1,0 +1,163 @@
+#!/bin/bash
+#
+# Converts unix, dos/windows and mac text file formats into each other.
+#
+# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# History
+# Created  Matthias Cuntz, 2012
+# Modified Matthias Cuntz, Dec 2014 - deal with spaces in file names.
+#          Matthias Cuntz, May 2015 - preserve file permissions
+set -e
+#
+trap cleanup 1 2 3 6
+#
+prog=$0
+pprog=$(basename ${prog})
+dprog=$(dirname ${prog})
+isdir=${PWD}
+pid=$$
+TMP=${TMPDIR:-"/tmp"}
+#
+if [ ! -f "${dprog}/mac2unix" ] ; then
+    cd ${dprog}
+    plist="mac2unix win2mac mac2win unix2win win2unix"
+    for i in ${plist} ; do
+	if [ ! -f ${i} ] ; then ln -s unix2mac ${i} ; fi
+    done
+    cd ${isdir}
+fi
+#
+# --------------------------------------------------------------------------------------------------
+function usage () {
+    printf "${pprog} [-h|-help|--h|--help] [-q|--quiet] [files]\n"
+    printf "Converts between unix, dos/windows and mac text file formats.\n"
+    printf "Script is called   a2b   where a and b be can be unix, win and mac.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    infiles                Files to be converted.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -h|-help|--h|--help    Prints this help screen.\n"
+    printf "    -q|--quiet             Proceed quietly.\n"
+    printf "\n"
+    printf "Examples\n"
+    printf "    win2unix -q \*.txt\n"
+    printf "\n"
+    printf "Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+#
+# cleanup
+function cleanup ()
+{
+  \rm -f ${TMP}/*.${pid}*
+  exit 1
+}
+#
+# program switches
+quiet=0
+for i in $* ; do
+    case ${i} in
+	-h | -help | --h | --help) usage; exit 2;;
+	-q | --quiet) quiet=1; shift;;
+    esac
+done
+#
+# Check input files
+NO_ARGS=0
+if [ $# -le ${NO_ARGS} ] ; then 
+    printf "Error ${pprog}: input files missing.\n\n"
+    usage 1>&2
+    exit 2
+fi
+#
+# formats
+form1=$(printf "${pprog}" | cut -f 1 -d 2)
+form2=$(printf "${pprog}" | cut -f 2 -d 2)
+case ${form1} in
+    win) um1='\r\n';;
+    unix) um1='\n';;
+    mac) um1='\r';;
+    *) printf "Unknown error ${pprog}.\n\n"; usage 1>&2 ; exit 2;;
+esac
+case ${form2} in
+    win) um2='\r\n';;
+    unix) um2='\n';;
+    mac) um2='\r';;
+    *) printf "Unknown error ${pprog}.\n\n"; usage 1>&2 ; exit 2;;
+esac
+#
+# Slightly different perl scripts for different cases
+# in order to catch replacement patterns not found
+save=0
+if [ "${form2}" == "win" ] ; then save=1 ; fi
+if [ "${form1}" == "mac" ] ; then save=1 ; fi
+#
+# Write perl scripts
+if [ ${save} -eq 0 ] ; then
+    cat > ${TMP}/unix2mac.${pid}.pl << EOF
+      while(<>) {
+        s/${um1}/${um2}/g;
+        print \$_;
+      }
+EOF
+else
+    cat > ${TMP}/unix2mac.${pid}.pl << EOF
+      while(<>) {
+          if (\$_ !~ m/\r\n/) {
+            s/${um1}/${um2}/g;
+            print \$_;
+          } else {
+            print \$_;
+          }
+      }
+EOF
+fi
+#
+# do perl script for every file
+for i in "$@" ; do
+    if [ ${quiet} -eq 0 ] ; then
+	echo "${pprog}: converting file ${i} from ${form1} to ${form2} format ..."
+    fi
+    ii=$(basename ${i})
+    perl ${TMP}/unix2mac.${pid}.pl < "${i}" > "${TMP}/${ii}.${pid}"
+    # file permissions, check for different utilities first
+    # on GNU: chmod --reference=old new
+    # on Unix: chmod $(stat -f '%p' old) new
+    set +e
+    testit=$(stat -f '%p' "${i}" 2>&1 > /dev/null)
+    if [[ "${testit}z" == "z" ]] ; then GNU=0 ; else GNU=1 ; fi	
+    set -e
+    if [[ ${GNU} -eq 1 ]] ; then
+	chmod --reference="${i}" "${TMP}/${ii}.${pid}"
+	mv "${TMP}/${ii}.${pid}" "${i}"
+    else
+	mod=$(stat -f '%p' "${i}")
+	mv "${TMP}/${ii}.${pid}" "${i}"
+	chmod ${mod} "${i}"
+    fi
+
+done
+#
+# Clean
+if [ -f ${TMP}/unix2mac.${pid}.pl ] ; then \rm ${TMP}/unix2mac.${pid}.pl ; fi
+#
+exit

@@ -1,0 +1,127 @@
+#!/bin/bash
+#
+# Concatenate files with identical headers. Leaves header of first file and removes all subsequent headers.
+#
+# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+#
+prog=$0
+pprog=$(basename ${prog})
+dprog=$(dirname ${prog})
+isdir=${PWD}
+pid=$$
+#
+# ---------------------------------------------------------------------------------------------------------------------
+function usage () {
+    printf "${pprog} [-fh] [-n nhead] [-o outfile] infiles\n"
+    printf "Concatenate files with identical headers. Leaves header of first file and removes all subsequent headers.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    infiles     Files to concatenate.\n"
+    printf "\n"
+    printf "Optional input\n"
+    printf "    -o outfile  Ouput filename. Default: standard out\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -f          Force overwriting of output file if exists.\n"
+    printf "    -h          Prints this help screen.\n"
+    printf "    -n nhead    # of header lines at the beginning of infiles.\n"
+    printf "                If not given, ${pprog} is a simple cat command.\n"
+    printf "\n"
+    printf "Example\n"
+    printf "    ${pprog} -n 1 -o out infile*\n"
+    printf "\n"
+    printf "Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+# ---------------------------------------------------------------------------------------------------------------------
+# Start
+#
+# switches
+force=0
+skip=0
+outfile=""
+while getopts "fhn:o:" Option ; do
+    case ${Option} in
+	f) force=1;;
+	h) usage 1>&2; exit 0;;
+	n) skip="${OPTARG}";;
+	o) outfile="${OPTARG}";;
+	*) printf "Error ${pprog}: unimplemented option.\n\n";  usage 1>&2; exit 1;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Check args
+NO_ARGS=1
+if [[ $# -lt ${NO_ARGS} ]] ; then 
+    printf "Error ${pprog}: input files missing.\n\n"
+    usage 1>&2
+    exit 1
+fi
+infiles="$@"
+#
+# Check files
+if [ ! -f ${infile} ] ; then
+    printf "Error ${pprog}: Input file not found: %s" ${infile}
+    exit 1
+fi
+#
+# Output file
+if [ "${outfile}" != "" ] ; then
+  if [ -f ${outfile} ] ; then
+    if [ ${force} -eq 1 ] ; then
+	\rm ${outfile}
+    else
+	printf "Error ${pprog}: output file exists. Use -f to force overwrite.\n"
+	exit 1
+    fi
+  fi
+fi
+#
+# Concatenate files
+if [ ${skip} -eq 0 ] ; then
+  if [ "${outfile}" != "" ] ; then
+    cat ${infiles} >> ${outfile}
+  else
+    cat ${infiles}
+  fi
+else
+    i=1
+    for j in ${infiles} ; do
+	if [ ${i} -eq 1 ] ; then
+          if [ "${outfile}" != "" ] ; then
+	    cp ${j} ${outfile}
+          else
+	    cat ${j}
+          fi
+	else
+          if [ "${outfile}" != "" ] ; then
+	    sed -e "1,${skip}d" ${j} >> ${outfile}
+          else
+	    sed -e "1,${skip}d" ${j}
+          fi
+	fi
+	((i++))
+    done
+fi
+
+exit 0

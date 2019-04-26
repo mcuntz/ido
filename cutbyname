@@ -1,0 +1,216 @@
+#!/bin/bash
+#
+# Wrapper of cut command where one specifies the fields by name in a header line.
+#
+# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+#
+trap cleanup 1 2 3 6
+#
+prog=$(basename $0)
+dprog=$(dirname $0)
+isdir=${PWD}
+pid="$$"
+TMP=${TMPDIR:-"/tmp"}
+#
+# usage
+function usage ()
+{
+  printf "\n"
+  printf "${prog} [-d delim] -f|-n list [-h] [-l num] [-st1] [file]\n"
+  printf "\n"
+  printf "Wrapper of cut command where one specifies the fields by name in a header line.\n"
+  printf "The selected columns are written to standard output.\n"
+  printf "\n"
+  printf "Input\n"
+  printf "    file            Input file. If no file argument is specified,\n"
+  printf "                    or a file argument is a single dash ('-'), cut reads from the standard input.\n"
+  printf "    -f | -n         Comma-delimited list of field names in header line.\n"
+  printf "\n"
+  printf "Options\n"
+  printf "    -d delim        Use delim as the field delimiter character instead of the tab character.\n"
+  printf "    -h              Prints this help screen.\n"
+  printf "    -l num          Field names are in line number num instead of first line.\n"
+  printf "    -s              Suppress lines with no field delimiter characters.\n"
+  printf "                    Unless specified, lines with no delimiters are passed through unmodified.\n"
+  printf "    -t              Squeeze delimiters with tr before extraction.\n"
+  printf "    -1              Remove delimiter at beginning of header line, e.g. if\n"
+  printf "                     ann  val\n"
+  printf "                    2011  0.5\n"
+  printf "\n"
+  printf "Examples\n"
+  printf "    sed 's/2002/2003/' infile | cutbyname -f 'date,co2' -d ',' | tr ',' ' ' > outfile\n"
+  printf "\n"
+  printf "Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+#
+# cleanup
+function cleanup ()
+{
+  \rm -f ${TMP}/*.${pid}*
+  exit 1
+}
+#
+# switches
+if [[ $# -eq 0 ]]  ; then
+    usage
+    exit 0
+fi
+delim="	"
+flist=""
+nlist=""
+nhead=1
+dosqueeze=0
+rm1=0
+s=""
+while getopts "d:f:hl:n:st1" Option ; do
+    case ${Option} in
+	d) delim="${OPTARG}";;
+	f) flist=${OPTARG};;
+	h) usage 1>&2; exit 0;;
+	l) nhead=${OPTARG};;
+	n) nlist=${OPTARG};;
+	s) s="-s";;
+	t) dosqueeze=1;;
+	1) rm1=1;;
+	*) printf "Error ${prog}: unimplemented option.\n";  usage 1>&2; exit 1;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Check list
+if [[ "${flist}" == "" && "${nlist}" == "" ]] ; then
+    printf "Error ${prog}: -f list or -n list has to be given.\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+if [[ "${flist}" != "" && "${nlist}" != "" ]] ; then
+    printf "Error ${prog}: -f AND -n given.\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+if [[ "${flist}" != "" ]] ; then
+    list=${flist}
+else
+    list=${nlist}
+fi
+#
+# Input
+if [[ $# -gt 1 ]] ; then
+    printf "Error ${prog}: only one input file or standard input possible.\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+if [[ $# -eq 1 ]]  ; then
+    IN="$@"
+else
+    IN="-"
+fi
+# Get header
+if [[ "${IN}" == "-" ]]  ; then
+    for ((i=1;i<=${nhead};i++)) ; do
+	read f
+	echo ${f} >> ${TMP}/cbn01.${pid}
+    done
+    h=$(tail -1 ${TMP}/cbn01.${pid})
+else
+    h=$(head -${nhead} ${IN} | tail -1)
+fi
+# Remove trailing carriage return: man -Pless\ +/\/pattern bash
+# $'\r' ANSI-C coding for carriage return: https://www.gnu.org/software/bash/manual/bash.html#ANSI_002dC-Quoting
+h=${h/%$'\r'}
+#
+# separate header into vector for case of spaces in field names
+if [[ ${dosqueeze} -eq 1 ]] ; then
+    if [[ ${rm1} -eq 1 ]] ; then
+	#nh=$(echo ${h} | tr -s "${delim}" | sed "s/[^${delim}]//g" | wc -c)
+	nh=$(printf "${h}" | tr -s "${delim}" | sed "s/[^${delim}]//g" | wc -c)
+    else
+	#nh=$(echo "${h}" | tr -s "${delim}" | wc -c)
+	nh=$(printf "${h}" | tr -s "${delim}" | wc -c)
+    fi
+else
+    #nh=$(echo ${h} | sed "s/[^${delim}]//g" | wc -c)
+    if [[ ${rm1} -eq 1 ]] ; then
+	#nh=$(echo "${h}" | sed "s/[^${delim}]//g" | wc -c)
+	nh=$(printf "${h}" | sed "s/[^${delim}]//g" | wc -c)
+    else
+	#nh=$(echo "${h}" | wc -c)
+	nh=$(printf "${h}" | wc -c)
+    fi
+fi
+((nh--))
+if [[ ${nh} -eq 0 ]] ; then
+    printf "Error ${prog}: no delimiter found in header line.\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+((nh++))
+for ((i=1;i<=${nh};i++)) ; do
+    if [[ ${dosqueeze} -eq 1 ]] ; then
+	#hh[${i}]=$(echo ${h} | tr -s "${delim}" | cut -f ${i} -d "${delim}")
+	hh[${i}]=$(printf "${h}" | tr -s "${delim}" | cut -f ${i} -d "${delim}")
+    else
+	#hh[${i}]=$(echo ${h} | cut -f ${i} -d "${delim}")
+	hh[${i}]=$(printf "${h}" | cut -f ${i} -d "${delim}")
+    fi
+done
+# separate list by ascii character 1 so that we can deal with spaces in field names
+sep=$(echo | tr '\012' '\001')
+list1=$(echo ${list} | tr "," ${sep})
+list1="${sep}${list1}${sep}"
+# Get field numbers
+k=1
+clist=""
+set +e
+for ((i=1;i<=${nh};i++)) ; do
+    g=$(echo "${list1}" | grep "${sep}${hh[${i}]}${sep}")
+    if [[ "${g}" != "" ]] ; then
+	clist="${clist},${k}"
+    fi
+    ((k++))
+done
+set -e
+clist=${clist#,}
+if [[ "${clist}" == "" ]] ; then
+    printf "Error ${prog}: no fields found in header line.\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+#
+# Cut input
+if [[ "${IN}" == "-" ]]  ; then
+    if [[ ${dosqueeze} -eq 1 ]] ; then
+	tr -s "${delim}" < ${TMP}/cbn01.${pid} | cut -f ${clist} -d "${delim}" ${s}
+    else
+	cut -f ${clist} -d "${delim}" ${s} ${TMP}/cbn01.${pid}
+    fi
+    rm ${TMP}/cbn01.${pid}
+    IN=<&0
+fi
+if [[ ${dosqueeze} -eq 1 ]] ; then
+    tr -s "${delim}" < ${IN} | cut -f ${clist} -d "${delim}" ${s}
+else
+    cut -f ${clist} -d "${delim}" ${s} ${IN}
+fi
+#
+exit 0

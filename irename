@@ -1,0 +1,102 @@
+#!/bin/bash
+#
+# Batch rename several files using an sed expression.
+#
+# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+prog=$0
+pprog=$(basename ${prog})
+dprog=$(dirname ${prog})
+isdir=${PWD}
+pid=$$
+#
+# --------------------------------------------------------------------------------------------------
+function usage () {
+    printf "${pprog} [-fhi] expr infiles\n"
+    printf "Batch rename several files using an sed expression.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    expr        sed expression such as 's/str1/str2/g' or 'y/abc/ABC/'.\n"
+    printf "    infiles     Files to rename. Filenames can include spaces.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -f          Force overwriting of outfiles.\n"
+    printf "    -h          Print this help screen.\n"
+    printf "    -i          Ask interactively to overwrite outfiles.\n"
+    printf "\n"
+    printf "Examples\n"
+    printf "    ${pprog} -f 's/DSC_/Photo/' *.jpg\n"
+    printf "\n"
+    printf "Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+# --------------------------------------------------------------------------------------------------
+# Start
+#
+#
+# Get options
+force=0
+inter=0
+while getopts "fhi" Option ; do
+    case ${Option} in
+	f) force=1;;
+	h) usage; exit;;
+	i) inter=1;;
+	*) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Check options
+total=$((force + inter))
+if [[ ${total} -eq 2 ]] ; then
+    printf "Error ${pprog}: -f and -i mutually exclusive.\n\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+#
+# Check sed expression and input files
+if [ $# -lt 2 ] ; then
+    printf "Error ${pprog}: sed expression and input files must be given.\n\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+#
+# Get sed expression
+sedstr=${1}
+shift 1
+#
+# Set interactive mv option
+iopt=""
+if [[ ${inter} -eq 1 ]] ; then iopt="-i" ; fi
+#
+# Rename
+for i in "$@" ; do
+    out=$(echo "${i}" | sed -e "${sedstr}")
+    if [[ ${total} -eq 0 && -f ${out} ]] ; then
+	printf "Error ${pprog}: outfile ${out} exists. Use -f to force overwrite.\n\n" 1>&2
+	usage 1>&2
+	exit 1
+    fi
+    mv ${iopt} "${i}" "${out}"
+done
+#
+exit 0

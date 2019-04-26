@@ -1,0 +1,149 @@
+#!/bin/bash
+#
+# Invert colours or colour channel in image using ImageMagick.
+#
+# Copyright (c) 2016-2017 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# History
+# Created  Matthias Cuntz, 2016
+# Modified Matthias Cuntz, 2017 - Options -a -0
+#                               - Check for installation of ImageMagick
+set -e
+#
+prog=$0
+pprog=$(basename ${prog})
+#
+# --------------------------------------------------------------------------------------------------
+# Usage
+#
+function usage () {
+    printf "${pprog} [-a] [-c channel] [-d dpi] [-hn] [-o outputfile] [-s colorspace] [-0] [-1] [-2] inputimage\n"
+    printf "Invert colours or colour channel in an image with ImageMagick.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    inputimage      Image file readable by ImageMagick.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -a              Do all three standard options, i.e. -0, -1, -2, giving 3 output files:\n"
+    echo   '                    if not -o outputfile given: ${inputimage%.*}-0/1/2.${inputimage##*.}.'
+    printf '                    if -o outputfile given: ${outputfile}-0/1/2.${inputimage##*.}.\n'
+    printf "    -c channel      Channel to invert in sepcific colour space.\n"
+    printf "    -d dpi          Horizontal and vertical density of the output image.\n"
+    printf "    -h              Prints this help screen.\n"
+    printf "    -n              Do not set output color space to sRGB.\n"
+    printf "    -o outputfile   Output file. Default: change input file.\n"
+    printf "    -s colorspace   Choose colour space for inversion. Default: RGB.\n"
+    printf "                    Get possible color spaces with: convert -list colorspace.\n"
+    printf "    -0              Shortcut for -s RGB, which is the default.\n"
+    printf "    -1              Shortcut for -s HSL -c L.\n"
+    printf "                    Gives brighter colours than LCH colour space inversion.\n"
+    printf "    -2              Shortcut for -s LCH -c C.\n"
+    printf "                    Gives darker colours than HSL colour space inversion.\n"
+    printf "\n"
+    printf "Examples\n"
+    printf "    ${pprog} -s LCH -c C -d 600 -o image.png image.pdf\n"
+    printf "    ${pprog} -1 -d 300 image.png\n"
+    printf "\n"
+    printf "Copyright (c) 2016-2017 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+#
+# --------------------------------------------------------------------------------------------------
+# Options and Check
+#
+# Get options
+all=0
+channel=""
+density=""
+ofile=""
+colorspace=""
+outspace="-colorspace sRGB"
+while getopts "ac:d:ho:s:012" Option ; do
+    case ${Option} in
+        a) all=1;;
+        c) channel="-channel ${OPTARG}";;
+        d) density="-density ${OPTARG}";;
+        h) usage; exit;;
+        n) outspace="";;
+        o) ofile="${OPTARG}";;
+        s) colorspace="-colorspace ${OPTARG}";;
+        0) colorspace=""; channel="";;
+        1) colorspace="-colorspace HSL"; channel="-channel L";;
+        2) colorspace="-colorspace LCH"; channel="-channel C";;
+        *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Check input file
+if [[ $# -eq 0 ]] ; then
+    printf "Error ${pprog}: image file argument needed.\n\n" 1>&2
+    usage 1>&2
+    exit 1
+elif [[ $# -gt 1 ]] ; then
+    printf "Error ${pprog}: only one image file argument possible.\n\n" 1>&2
+    usage 1>&2
+    exit 1
+fi
+# Check ImageMagick installation
+iprog=$(which mogrify)
+if [[ "${iprog}z" == "z" ]] ; then
+    printf "Error ${pprog}: ImageMagick (convert/mogrify) must be installed.\n\n" 1>&2
+    exit 1
+fi
+#
+# Image file
+ifile="$@"
+#
+# --------------------------------------------------------------------------------------------------
+# Inversion
+#
+# echo $(convert -list colorspace)
+# CIELab CMY CMYK Gray HCL HCLp HSB HSI HSL HSV HWB Lab LCH LCHab LCHuv LMS Log Luv OHTA Rec601Luma Rec601YCbCr Rec709Luma Rec709YCbCr RGB scRGB sRGB Transparent XYZ YCbCr YDbDr YCC YIQ YPbPr YUV
+# Good spaces for inversion are HSL and LCH=Lab=LCHab=LCHuv=Luv. LCH gives darker, HSL brighter results
+# Invert channel 2 for HSL and channel 0 for LCH.
+# The following code does in one step:
+# convert ${ifile} -density ${density} -colorspace ${colorspace} -separate ${ifile}%d.png # ${ifile}0.png, ...
+# mogrify -negate ${ifile}${nchannel}.png
+# convert ${ifile}[0-3].png -set colorspace ${colorspace} -combine -colorspace sRGB ${ifile%\.*}.png
+# rm ${ifile}?.png
+if [[ ${all} -eq 0 ]] ; then
+    if [[ "${ofile}z" == "z" ]] ; then
+        mogrify ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ifile}
+    else
+        convert ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ifile} ${ofile}
+    fi
+else
+    for i in 0 1 2 ; do
+        if [[ "${ofile}z" == "z" ]] ; then
+            outfile=${ifile%.*}-${i}.${ifile##*.}
+        else
+            outfile=${ofile}-${i}.${ifile##*.}
+        fi
+        case ${i} in
+            0) colorspace=""; channel="";;
+            1) colorspace="-colorspace HSL"; channel="-channel L";;
+            2) colorspace="-colorspace LCH"; channel="-channel C";;
+        esac
+        convert ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ifile} ${outfile}
+    done
+fi
+#
+exit 0

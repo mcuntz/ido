@@ -1,0 +1,134 @@
+#!/bin/bash
+#
+# Merges several pdf or postscript files into one single pdf or postscript file.
+#
+# Copyright (c) 2012-2013 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+prog=$0
+pprog=$(basename ${prog})
+dprog=$(dirname ${prog})
+isdir=${PWD}
+pid=$$
+#
+if [ ! -f ${dprog}/pdfmerge ] ; then 
+    cd ${dprog}
+    ln -s psmerge pdfmerge
+    cd ${isdir}
+fi
+#
+# --------------------------------------------------------------------------------------------------
+function usage () {
+    printf "${pprog} [-fhprsz] [-o ouputfile] infiles\n"
+    printf "Merges several pdf or postscript files into one single pdf or postscript file.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    infiles     Files to merge.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -f          Overwrite existing (output) file.\n"
+    printf "                Caution: if you have forgotten the actual output file after -o\n"
+    printf "                the first input file will be overwritten.\n"
+    printf "    -h          Prints this help screen.\n"
+    printf "    -o outfile  Output file name. Default: standard out\n"
+    printf "    -p          Output is pdf, independent of calling name.\n"
+    printf "    -r          High resolution pdf for printing; embeds all fonts, dpi=1200, ...\n"
+    printf "    -s          Output is postscript, independent of calling name.\n"
+    printf "    -z          Optimise pdf, i.e. downsample colour images to 150 and grayscale images to 300 dpi.\n"
+    printf "\n"
+    printf "Examples\n"
+    printf "    psmerge -o all.ps \*.ps\n"
+    printf "    pdfmerge -o all.pdf \*.ps\n"
+    printf "\n"
+    printf "Copyright (c) 2012-2013 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+# --------------------------------------------------------------------------------------------------
+# Start
+#
+# switches
+if [ "${pprog}" = "psmerge" ] ; then
+    device="pswrite"
+else
+    device="pdfwrite"
+fi
+force=0
+outfile="-"
+hres=0
+lres=0
+while getopts "fho:prsz" Option ; do
+    case ${Option} in
+	f) force=1;;
+	h) usage 1>&2; exit 2;;
+	o) outfile=${OPTARG};;
+	p) device="pdfwrite";;
+	r) hres=1;;
+	s) device="pswrite";;
+	z) lres=1;;
+	*) printf "Error ${pprog}: unimplemented option.\n\n";  usage 1>&2; exit 2;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Check resolutions
+if [[ ${hres} -eq 1 && ${lres} -eq 1 ]] ; then
+    printf "Error ${pprog}: -r (high resolution) and -z (optimise) mutually exclusive.\n\n"
+    usage 1>&2
+    exit 2
+fi
+#
+# Check input files
+NO_ARGS=0
+if [ $# -le ${NO_ARGS} ] ; then 
+    printf "Error ${pprog}: input files missing.\n\n"
+    usage 1>&2
+    exit 2
+fi
+#
+# Check output file
+if [ -f ${outfile} ] ; then
+    if [ ${force} -eq 1 ] ; then
+	\rm ${outfile}
+    else
+	printf "${pprog}: output file exists. Use -f to force overwrite.\n"
+	printf "          Check if '-o outfile' is set correctly otherwise first input file will be overwritten.\n"
+      usage 1>&2
+      exit 2
+    fi
+fi
+#
+# Merge
+if [ ${hres} -eq 1 ] ; then
+    HIGHRES='-dPDFSETTINGS=/prepress -dCompatibilityLevel=1.3 -dCompressPages=true -dUseFlateCompression=false -dSubsetFonts=true -dEmbedAllFonts=true -dProcessColorModel=/DeviceGray -dDetectBlends=true -dOptimize=true -dDownsampleColorImages=true -dColorImageResolution=1200 -dColorImageDownsampleType=/Average -dAntiAliasColorImages=false -dColorImageDownsampleThreshold=1.50000 -dDownsampleGrayImages=true -dGrayImageResolution=1200 -dGrayImageDownsampleType=/Average -dGrayImageFilter=/FlateEncode -dAutoFilterGrayImages=false -dAntiAliasGrayImages=false -dGrayImageDownsampleThreshold=1.50000 -dDownsampleMonoImages=true -dMonoImageResolution=1200 -dMonoImageDownsampleType=/Average -dMonoImageFilter=/FlateEncode -dAutoFilterMonoImages=false -dAntiAliasMonoImages=false -dMonoImageDownsampleThreshold=1.50000 -c save pop'
+else
+    HIGHRES=''
+fi
+if [ ${lres} -eq 1 ] ; then
+    LOWRES='-dPDFSETTINGS=/ebook -dCompatibilityLevel=1.3 -dCompressPages=true -dUseFlateCompression=false -dSubsetFonts=true -dEmbedAllFonts=true -dDetectBlends=true -dOptimize=true -dDownsampleColorImages=true -dColorImageResolution=150 -dAntiAliasColorImages=false -dColorImageDownsampleThreshold=1.50000 -dDownsampleGrayImages=true -dGrayImageResolution=300 -dGrayImageFilter=/FlateEncode -dAutoFilterGrayImages=false -dAntiAliasGrayImages=false -dGrayImageDownsampleThreshold=1.50000 -dDownsampleMonoImages=true -dMonoImageResolution=300 -dMonoImageFilter=/FlateEncode -dAutoFilterMonoImages=false -dAntiAliasMonoImages=false -dMonoImageDownsampleThreshold=1.50000 -c save pop -c 30000000 setvmthreshold'
+else
+    LOWRES=''
+fi
+if [ "${device}" = "pdfwrite" ] ; then
+    gs -q -dSAFER -dNOPAUSE -sPAPERSIZE=a4 -dAutoFilterColorImages=false -dColorImageFilter=/FlateEncode -sDEVICE=${device} -sOUTPUTFILE=${outfile} -dBATCH ${HIGHRES} ${LOWRES} -f "$@"
+else
+    gs -q -dSAFER -dNOPAUSE -sPAPERSIZE=a4 -sDEVICE=${device} -sOUTPUTFILE=${outfile} -dBATCH -f "$@"
+fi
+#
+exit 0

@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# Reverses the lines in a file leaving a header.
+#
+# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+#
+prog=$0
+pprog=$(basename ${prog})
+dprog=$(dirname ${prog})
+isdir=${PWD}
+pid=$$
+#
+# ------------------------------------------------------------------------------------------------------------------------------------
+function usage () {
+    printf "${pprog} [-h] [-s skip] [infile]\n"
+    printf "Reverses the lines in a file leaving a header.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    infile      Input file to reverse. If no file argument is specified,\n"
+    printf "                or a file argument is a single dash ('-'), read from the standard input.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -h          Prints this help screen.\n"
+    printf "    -s skip     # of header lines to skip at the beginning of infile, i.e. stay as header lines.\n"
+    printf "\n"
+    printf "Example\n"
+    printf "    ${pprog} -s 1 infile > outfile\n"
+    printf "    cat infile | ${pprog} > outfile\n"
+    printf "    cat infile | ${pprog} - > outfile\n"
+    printf "\n"
+    printf "Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+# ------------------------------------------------------------------------------------------------------------------------------------
+# Start
+#
+# switches
+skip=0
+while getopts "hs:" Option ; do
+    case ${Option} in
+	h) usage; exit;;
+	s) skip="${OPTARG}";;
+	*) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Get infile
+if [[ $# -eq 0 ]]  ; then
+    infile="-"
+else
+    infile="${1}"
+fi
+#
+# Read infile, the while loop deletes spaces at the beginning of the line
+# i=1
+# while read f ; do
+#     a[${i}]="${f}"
+#     ((i++))
+# done < ${infile}
+# nlines=$((i-1))
+#
+# Read lines into array by setting IFS to only newline
+IFSold=${IFS}
+IFS=$'\n'
+if [[ "${infile}" == "-" ]] ; then
+    IN=<&0
+    a=( $( cat ${IN} ) )
+else
+    a=( $( < ${infile} ) )
+fi
+IFS=${IFSold}
+nlines=${#a[*]}
+#
+# Write using 'printf "%s\n" line' because otherwise printf interprets line
+# Header
+((skip--))
+for ((k=0; k<=${skip}; k++)) ; do
+    printf "%s\n" "${a[${k}]}"
+done
+# Corpus
+((nlines--))
+for ((k=${nlines}; k>${skip}; k--)) ; do
+    printf "%s\n" "${a[${k}]}"
+done
+
+exit 0
