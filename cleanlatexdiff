@@ -1,0 +1,140 @@
+#!/bin/bash
+#
+# Clean internal LaTeX commands in latexdiff output to simple \add and \del commands.
+#
+# Copyright (c) 2018 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+#
+prog=$0
+pprog=$(basename ${prog})
+pid=$$
+#
+# --------------------------------------------------------------------------------------------------
+# Usage
+#
+function usage () {
+    printf "${pprog} [-hi] [-o outputfile] latexfile\n"
+    printf "Clean internal LaTeX commands of latexdiff output to simple \\add and \\del commands.\n"
+    printf "\n"
+    printf "Input\n"
+    printf "    latexfile       LaTeX output from latexdiff.\n"
+    printf "                    If no file argument is specified, or a file argument is a single dash ('-'),\n"
+    printf "                    read from the standard input.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -h              Prints this help screen.\n"
+    printf "    -i              Interactive, i.e. output file is equal input file.\n"
+    printf "    -o outputfile   Output file. Default: write to stdout.\n"
+    printf "\n"
+    printf "Examples\n"
+    printf "    latexdiff --flatten old.tex new.tex | ${pprog} > diff.tex\n"
+    printf "    ${pprog} diff.tex > cdiff.tex\n"
+    printf "    ${pprog} -i diff.tex\n"
+    printf "    ${pprog} -o cdiff.tex diff.tex\n"
+    printf "\n"
+    printf "Copyright (c) 2018 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+#
+# --------------------------------------------------------------------------------------------------
+# Options and Check
+#
+# Get options
+interactive=0
+ofile=""
+while getopts "hio:" Option ; do
+    case ${Option} in
+        h) usage; exit;;
+        i) interactive=1;;
+        o) ofile="${OPTARG}";;
+        *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+# Check input
+if [[ $# -eq 0 ]]  ; then
+    ifile=<&0
+    interactive=0
+elif [[ $# -gt 1 ]] ; then
+    printf "Error ${pprog}: only one LaTeX file or standard input possible.\n\n" 1>&2
+    usage 1>&2
+    exit 1
+else
+    ifile="${1}"
+    if [[ "${ifile}" == "-" ]] ; then
+	ifile=<&0
+	interactive=0
+    fi
+fi
+#
+# --------------------------------------------------------------------------------------------------
+# Delete commands
+esed=''
+esed=${esed}' -e "/^.providecommand..DIFaddFL/d"'
+esed=${esed}' -e "/^.providecommand..DIFdelFL/d"'
+esed=${esed}' -e "/^.providecommand..DIF...begin/d"'
+esed=${esed}' -e "/^.providecommand..DIF...end/d"'
+esed=${esed}' -e "s/\\\DIFaddbeginFL //g"'
+esed=${esed}' -e "s/\\\DIFaddendFL//g"'
+esed=${esed}' -e "s/\\\DIFdelbeginFL //g"'
+esed=${esed}' -e "s/\\\DIFdelendFL//g"'
+esed=${esed}' -e "s/\\\DIFaddbegin //g"'
+esed=${esed}' -e "s/\\\DIFaddend//g"'
+esed=${esed}' -e "s/\\\DIFdelbegin //g"'
+esed=${esed}' -e "s/\\\DIFdelend//g"'
+esed=${esed}' -e "s/\\\DIFaddFL/\\\add/g"'
+esed=${esed}' -e "s/\\\DIFdelFL/\\\del/g"'
+esed=${esed}' -e "s/\\\DIFadd/\\\add/g"'
+esed=${esed}' -e "s/\\\DIFdel/\\\del/g"'
+esed=${esed}' -e "/^%DIFDELCMD/d"'
+esed=${esed}' -e "s/%DIFDELCMD.*//"'
+esed=${esed}' -e "/^%DIFAUXCMD/d"'
+esed=${esed}' -e "s/%DIFAUXCMD.*//"'
+esed=${esed}' -e "/^%DIF -------/d"'
+esed=${esed}' -e "/^%DIF </d"'
+esed=${esed}' -e "s/%DIF <.*//"'
+esed=${esed}' -e "s/%DIF > $//"'
+esed=${esed}' -e "s/%DIF > /%/"'
+esed=${esed}' -e "/^%DIF PREAMBLE/d"'
+esed=${esed}' -e "s/ %DIF PREAMBLE.*//g"'
+esed=${esed}' -e "/^%DIF UNDERLINE PREAMBLE/d"'
+esed=${esed}' -e "/^%DIF SAFE PREAMBLE/d"'
+esed=${esed}' -e "/^%DIF FLOATSAFE PREAMBLE/d"'
+esed=${esed}' -e "/^%DIF END PREAMBLE/d"'
+esed=${esed}' -e "/^%DIF [[:alnum:]]* PREAMBLE/d"'
+esed=${esed}' -e "/^%DIF [[:digit:]]+/d"'
+# (almost) empty lines, e.g. after \begin{equation}, stops LaTeX otherwise
+esed=${esed}' -e "/^[[:blank:]]+$/d"'
+#
+# Delete
+if [[ ${interactive} -eq 1 ]] ; then
+    eval sed -E ${esed} ${ifile} > tmp.${pid}
+    mv tmp.${pid} ${ifile}
+else
+    if [[ "${ofile}z" == "z" ]] ; then
+	cat ${ifile} | eval sed -E ${esed}
+    else
+	cat ${ifile} | eval sed -E ${esed} > ${ofile}
+    fi
+fi
+#
+exit 0

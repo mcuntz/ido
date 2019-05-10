@@ -1,6 +1,7 @@
 # Put into .bash_profile: source ido_bash_complete
 # to get completion of options with tab
 complete -W "-f -h -n -o" -f catfiles
+complete -W "-h -i -o" -f cleanlatexdiff
 complete -W "-d -f -h -l -n -s -t -1" -f cutbyname
 complete -W "-c -d -h -n -o -s -1 -2" -f iinvert
 complete -W "-f -h -i" -f irename
