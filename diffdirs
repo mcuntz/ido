@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+# Compare two directories, giving formatted output.
+#
+# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+set -e
+#
+trap cleanup 1 2 3 6
+#
+prog=`basename $0`
+dprog=`dirname $0`
+pid="$$"
+#
+# usage
+function usage ()
+{
+  printf "${prog} [-ehns] dir1 dir2\n"
+  printf "Compares two directories, giving formatted output.\n"
+  printf "\n"
+  printf "Output\n"
+  printf "   file: diff_shortdir1_shortdir2\n"
+  printf "\n"
+  printf "Input\n"
+  printf "   dir1/2       Directories to compare.\n"
+  printf "\n"
+  printf "Options\n"
+  printf "   -e           Use additional flags -Etd.\n"
+  printf "   -h           Prints this help screen.\n"
+  printf "   -n           Ignore all . directories.\n"
+  printf "   -s           Output to stdout rather than file.\n"
+  printf "\n"
+  printf "Examples\n"
+  printf "    ${pprog} -n dir1 dir2\n"
+  printf "\n"
+  printf "Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de\n"
+  exit
+}
+#
+# cleanup
+function cleanup ()
+{
+  \rm -f /tmp/*.${pid}
+  exit 1
+}
+#
+NO_ARGS=0
+if [[ $# -eq "${NO_ARGS}" ]] ; then usage 1>&2; exit 2; fi
+#
+# switches
+screen=0
+doextra=0
+ignoredot=0
+while getopts "ehs" Option ; do
+    case ${Option} in
+	e) doextra=1;;
+	h) usage 1>&2; exit 2;;
+	n) ignoredot=1;;
+	s) screen=1;;
+	*) echo "Error ${prog}: unimplemented option.";  usage 1>&2; exit 2;;
+    esac
+done
+shift $((${OPTIND} - 1))
+#
+if [[ $# -ne 2 ]] ; then usage 1>&2; exit 2; fi
+#
+dir1=${1%/}
+dir1=${dir1##*/}
+dir1=${dir1// */}
+dir2=${2%/}
+dir2=${dir2##*/}
+dir2=${dir2// */}
+if [[ ${doextra} -eq 1 ]] ; then
+    extra='-Etd'
+else
+    extra=''
+fi
+set +e
+if [[ ${ignoredot} -eq 1 ]] ; then
+    diff --exclude='.*' -bBiwr ${extra} "$1" "$2" > diff_${dir1}_${dir2}
+else
+    diff --exclude='.svn' -bBiwr ${extra} "$1" "$2" > diff_${dir1}_${dir2}
+fi
+set -e
+# perl: \r - return; \n - newline
+perl -p -e 's/^diff/\n###################################################################################\ndiff/' \
+    < diff_${dir1}_${dir2} > /tmp/tmp.${pid}
+perl -p -e 's/^Only/\n###################################################################################\nOnly/' \
+    < /tmp/tmp.${pid} > diff_${dir1}_${dir2}
+\rm /tmp/tmp.${pid}
+#
+if [[ ${screen} -eq 1 ]] ; then
+    cat diff_${dir1}_${dir2}
+    \rm diff_${dir1}_${dir2}
+fi
+# 
+exit
