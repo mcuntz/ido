@@ -2,7 +2,7 @@
 #
 # Wrapper for zip utility: if 'izip directory' then 'zip -r directory.zip directory' will be called.
 #
-# Copyright (c) 2015 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2015-2019 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,66 +32,68 @@ pid=$$
 #
 # --------------------------------------------------------------------------------------------------
 function usage () {
-    printf "${pprog} [-h] [options] zipfile input\n"
+    printf "${pprog} [-h] [options] inputs\n"
     printf "Wrapper for zip utility; options will be transferred directly to the zip utility.\n"
-    printf "If the call is: ${pprog} directory, then this is wrapped to: zip -r directory.zip directory\n"
+    printf '$(basename last_argument).zip will be the name of the zip archive.\n'
+    printf "The -r option will be added if one of the given inputs is a directory.\n"
     printf "\n"
     printf "Input\n"
-    printf "    zipfile     zipfile output name.\n"
-    printf "                If zipfile is the only argument and it is a directory than the call is wrapped to\n"
-    printf "                    zip -r zipfile.zip zipfile\n"
-    printf "                Only the last subdirectory will be zipped; the zipfile will always be in the current directory, i.e.\n"
-    printf "                izip dir1/dir2/dir3 will do\n"
-    printf "                    cd dir1/dir2; zip -r dir3.zip dir3; mv dir3.zip ../..; cd -\n"
+    printf "    inputs      files and direcotries.\n"
     printf "\n"
     printf "Options\n"
     printf "    -h          Prints this help screen.\n"
     printf "    all options allowed to zip utility. Try zip -h  or  man zip\n"
     printf "\n"
     printf "Examples\n"
-    printf "    ${pprog} mydir\n"
-    printf "    ${pprog} -f mydir.zip\n"
-    printf "    ${pprog} mydir/subdir\n"
+    printf "    zip directory mydir into mydir.zip\n"
+    printf "        ${pprog} mydir\n"
+    printf "    zip directory mydir into mydir.zip; do not follow symbolic links\n"
+    printf "        ${pprog} -y mydir\n"
+    printf "    zip directory mydir/subdir into subdir.zip, which will have the full directory structure\n"
+    printf "        ${pprog} mydir/subdir\n"
+    printf "    zip directory mydir and all .py files into mydir.zip; mydir must be last argument\n"
+    printf "        ${pprog} *.py mydir\n"
     printf "\n"
-    printf "Copyright (c) 2015 Matthias Cuntz - mc (at) macu (dot) de\n"
+    printf "Copyright (c) 2015-2019 Matthias Cuntz - mc (at) macu (dot) de\n"
 }
 # --------------------------------------------------------------------------------------------------
 # Start
 #
 #
-# Get options
+# Get options and files
 if [[ $# -eq 0 ]] ; then
     usage
     exit 2
 fi
-for i in $* ; do
+opt=""
+ifiles=""
+lfile=""
+hasr=0
+for i in "$@" ; do
+    if [[ $(echo ${lfile} | cut -c 1) == "-" ]] ; then
+	opt="${opt} ${lfile}"
+    else
+	ifiles="${ifiles} ${lfile}"
+    fi
+    lfile=${i}
     case ${i} in
 	-h | -help | --h | --help) usage; exit 2;;
+	-r | -R) hasr=1;;
     esac
 done
 #
-# Check if single input and directory
-if [[ $# -eq 1 ]] ; then
-    if [[ -d "${1}" ]] ; then
-	zipfile=$(basename "${1}")
-	dir=$(dirname "${1}")
-	if [[ "zipfile" == "." ]] ; then # if call was izip dir/.
-	    zipfile=$(basename $(dirname "${1}"))
-	    dir=$(dirname $(dirname "${1}"))
-	fi
-	if [[ "${dir}" != "." ]] ; then
-	    cd "${dir}"
-	fi
-	zip -r "${zipfile}".zip "${zipfile}"
-	if [[ "${dir}" != "." && "${dir}" != "${isdir}" ]] ; then
-	    mv "${zipfile}".zip "${isdir}"
-	    cd "${isdir}"
-	fi
-	exit 0
-    fi
+# output zip file
+ofile=$(basename "${lfile}").zip
+#
+# set -r option if needed
+if [[ -d ${lfile} && ${hasr} -eq 0 ]] ; then opt="-r ${opt}" ; fi
+if [[ ${hasr} -eq 0 ]] ; then
+    for ff in $(echo ${ifiles}) ; do 
+	if [[ -d ${ff} ]] ; then opt="-r ${opt}" ; fi
+    done
 fi
 #
-# wrap to zip if not exited before
-zip "$@"
+# Call zip
+zip ${opt} ${ofile} ${ifiles} ${lfile}
 #
 exit 0
