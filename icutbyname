@@ -58,7 +58,7 @@ function usage ()
     printf "                    2011  0.5\n"
     printf "\n"
     printf "Examples\n"
-    printf "    sed 's/2002/2003/' infile | cutbyname -f 'date,co2' -d ',' | tr ',' ' ' > outfile\n"
+    printf "    sed 's/2002/2003/' infile | icutbyname -f 'date,co2' -d ',' | tr ',' ' ' > outfile\n"
     printf "\n"
     printf "Copyright (c) 2012-2020 Matthias Cuntz - mc (at) macu (dot) de\n"
 }
