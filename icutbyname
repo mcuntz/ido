@@ -2,7 +2,7 @@
 #
 # Wrapper of cut command where one specifies the fields by name in a header line.
 #
-# Copyright (c) 2012-2020 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2012-2021 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,15 +43,19 @@ function usage ()
     printf "\n"
     printf "Input\n"
     printf "    file            Input file. If no file argument is specified,\n"
-    printf "                    or a file argument is a single dash ('-'), cut reads from the standard input.\n"
-    printf "    -f | -n         Comma-delimited list of field names in header line.\n"
+    printf "                    or a file argument is a single dash ('-'),\n"
+    printf "                    cut reads from the standard input.\n"
+    printf "    -f | -n         'delim'-delimited list of field names in header line.\n"
+    printf "                    'delim' (-d) is the tab character by default.\n"
     printf "\n"
     printf "Options\n"
-    printf "    -d delim        Use delim as the field delimiter character instead of the tab character.\n"
+    printf "    -d delim        Use 'delim' as the field delimiter character\n"
+    printf "                    instead of the tab character.\n"
     printf "    -h              Prints this help screen.\n"
-    printf "    -l num          Field names are in line number num instead of first line.\n"
+    printf "    -l num          Field names are in line number 'num' instead of first line.\n"
     printf "    -s              Suppress lines with no field delimiter characters.\n"
-    printf "                    Unless specified, lines with no delimiters are passed through unmodified.\n"
+    printf "                    Unless specified, lines with no delimiters are\n"
+    printf "                    passed through unmodified.\n"
     printf "    -t              Squeeze delimiters with tr before extraction.\n"
     printf "    -1              Remove delimiter at beginning of header line, e.g. if\n"
     printf "                     ann  val\n"
@@ -60,7 +64,7 @@ function usage ()
     printf "Examples\n"
     printf "    sed 's/2002/2003/' infile | icutbyname -f 'date,co2' -d ',' | tr ',' ' ' > outfile\n"
     printf "\n"
-    printf "Copyright (c) 2012-2020 Matthias Cuntz - mc (at) macu (dot) de\n"
+    printf "Copyright (c) 2012-2021 Matthias Cuntz - mc (at) macu (dot) de\n"
 }
 #
 # cleanup
@@ -104,7 +108,7 @@ if [[ "${flist}" == "" && "${nlist}" == "" ]] ; then
     exit 1
 fi
 if [[ "${flist}" != "" && "${nlist}" != "" ]] ; then
-    printf "Error ${prog}: -f AND -n given.\n" 1>&2
+    printf "Error ${prog}: mutually exclusive -f AND -n were given.\n" 1>&2
     usage 1>&2
     exit 1
 fi
@@ -165,7 +169,7 @@ done
 #
 # separate input variable list by ascii character 1 so that we can deal with spaces in field names
 sep=$(echo | tr '\012' '\001')
-list1=$(echo ${list} | tr "," ${sep})
+list1=$(echo ${list} | tr "${delim}" ${sep})
 list1="${sep}${list1}${sep}"
 #
 # Get field numbers corresponding to field names
