@@ -2,7 +2,7 @@
 #
 # Invert colors or color channel in image using ImageMagick.
 #
-# Copyright (c) 2016-2017 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2016-2022 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,11 @@
 # Modified Matthias Cuntz, 2022
 #     - Check for newer ImageMagick installations
 #     - Renamed colour to color to conform with ImageMagick
+# Modified Matthias Cuntz, 2022
+#     - use magick with negate and modulate from
+#           https://www.nature.com/articles/d41586-021-00263-0
+#       see
+#           https://imagemagick.org/Usage/color_mods/#modulate
 #
 set -e
 #
@@ -55,14 +60,14 @@ else
 fi
 #
 function usage () {
-    printf "${pprog} [-a] [-c channel] [-d dpi] [-hn] [-o outputfile] [-s colorspace] [-0] [-1] [-2] inputimage\n"
+    printf "${pprog} [-a] [-c channel] [-d dpi] [-hn] [-o outputfile] [-s colorspace] [-0] [-1] [-2] [-3] inputimage\n"
     printf "Invert colors or color channel in an image with ImageMagick.\n"
     printf "\n"
     printf "Input\n"
     printf "    inputimage      Image file readable by ImageMagick.\n"
     printf "\n"
     printf "Options\n"
-    printf "    -a              Do all three standard options, i.e. -0, -1, -2, giving 3 output files:\n"
+    printf "    -a              Do all four standard options, i.e. -0, -1, -2, and -3 giving 4 output files:\n"
     echo   '                    if not -o outputfile given: ${inputimage%.*}-0/1/2.${inputimage##*.}.'
     printf '                    if -o outputfile given: ${outputfile}-0/1/2.${inputimage##*.}.\n'
     printf "    -c channel      Channel to invert in specific color space.\n"
@@ -77,6 +82,8 @@ function usage () {
     printf "                    Gives brighter colors than LCH color space inversion.\n"
     printf "    -2              Shortcut for -s LCH -c C.\n"
     printf "                    Gives darker colors than HSL color space inversion.\n"
+    printf "    -3              Negates in RGB space using modulate to invert Hue but not the intensity.\n"
+    printf "                    Gives very similar results to -1, i.e. inversion in HSL color space.\n"
     printf "\n"
     printf "Examples\n"
     printf "    ${pprog} -s LCH -c C -d 600 -o image.png image.pdf\n"
@@ -95,7 +102,7 @@ density=""
 ofile=""
 colorspace=""
 outspace="-colorspace sRGB"
-while getopts "ac:d:ho:s:012" Option ; do
+while getopts "ac:d:ho:s:0123" Option ; do
     case ${Option} in
         a) all=1;;
         c) channel="-channel ${OPTARG}";;
@@ -107,6 +114,7 @@ while getopts "ac:d:ho:s:012" Option ; do
         0) colorspace=""; channel="";;
         1) colorspace="-colorspace HSL"; channel="-channel L";;
         2) colorspace="-colorspace LCH"; channel="-channel C";;
+        3) colorspace=""; channel="-channel RGB"; outspace="-modulate 100,100,200";;
         *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
     esac
 done
@@ -141,12 +149,12 @@ ifile="$@"
 # rm ${ifile}?.png
 if [[ ${all} -eq 0 ]] ; then
     if [[ "${ofile}z" == "z" ]] ; then
-        ${mprog} ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ifile}
+        ${mprog} ${ifile} ${density} ${colorspace} ${channel} -negate ${outspace} ${density}
     else
-        ${cprog} ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ifile} ${ofile}
+        ${cprog} ${ifile} ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ofile}
     fi
 else
-    for i in 0 1 2 ; do
+    for i in 0 1 2 3 ; do
         if [[ "${ofile}z" == "z" ]] ; then
             outfile=${ifile%.*}-${i}.${ifile##*.}
         else
@@ -156,8 +164,9 @@ else
             0) colorspace=""; channel="";;
             1) colorspace="-colorspace HSL"; channel="-channel L";;
             2) colorspace="-colorspace LCH"; channel="-channel C";;
+            3) colorspace=""; channel="-channel RGB"; outspace="-modulate 100,100,200";;
         esac
-        ${cprog} ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${ifile} ${outfile}
+        ${cprog} ${ifile} ${density} ${colorspace} ${channel} -negate ${outspace} ${density} ${outfile}
     done
 fi
 #
