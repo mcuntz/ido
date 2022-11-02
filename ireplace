@@ -25,6 +25,7 @@
 # History
 # Created  Matthias Cuntz, 2012
 # Modified Matthias Cuntz, May 2015 - preserve file permissions
+# Modified Matthias Cuntz, Nov 2022 - do not attempt replace on directory
 #
 set -e
 #
@@ -58,8 +59,8 @@ function usage () {
 # cleanup
 function cleanup ()
 {
-  \rm -f ${TMP}/*.${pid}*
-  exit 1
+    \rm -f ${TMP}/*.${pid}*
+    exit 1
 }
 # --------------------------------------------------------------------------------------------------
 # Start
@@ -68,8 +69,8 @@ function cleanup ()
 # Get options
 while getopts "h" Option ; do
     case ${Option} in
-	h) usage; exit;;
-	*) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+	      h) usage; exit;;
+	      *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
     esac
 done
 shift $((${OPTIND} - 1))
@@ -87,27 +88,29 @@ shift 1
 #
 # Replace
 for i in "$@" ; do
-    sed -e "${sedstr}" "${i}" > ${TMP}/tmp.${pid}
-    set +e
-    tt=$(sdiff -s "${i}" ${TMP}/tmp.${pid})
-    set -e
-    if [[ "${tt}" == "" ]] ; then
-        # delete if nothing was replaced
-	rm ${TMP}/tmp.${pid}
-    else
-	# file permissions, check for different utilities first
-	# on GNU: chmod --reference=old new
-	# on Unix: chmod $(stat -f '%p' old) new
-	set +e
-	# Recover error message if any, i.e. GNU
-	testit=$(stat -f '%p' "${i}" 2>&1 > /dev/null)
-	set -e
-	if [[ "${testit}z" == "z" ]] ; then # Unix
-	    chmod $(stat -f '%p' "${i}") ${TMP}/tmp.${pid}
-	else                                # GNU
-	    chmod --reference="${i}" ${TMP}/tmp.${pid}
-	fi
-	mv ${TMP}/tmp.${pid} "${i}"
+    if [[ $(file "${i}" | cut -d ' ' -f 2) != 'directory' ]] ; then
+        sed -e "${sedstr}" "${i}" > ${TMP}/tmp.${pid}
+        set +e
+        tt=$(sdiff -s "${i}" ${TMP}/tmp.${pid})
+        set -e
+        if [[ "${tt}" == "" ]] ; then
+            # delete if nothing was replaced
+    	      rm ${TMP}/tmp.${pid}
+        else
+    	      # file permissions, check for different utilities first
+    	      # on GNU: chmod --reference=old new
+    	      # on Unix: chmod $(stat -f '%p' old) new
+    	      set +e
+    	      # Recover error message if any, i.e. GNU
+    	      testit=$(stat -f '%p' "${i}" 2>&1 > /dev/null)
+    	      set -e
+    	      if [[ "${testit}z" == "z" ]] ; then # Unix
+    	          chmod $(stat -f '%p' "${i}") ${TMP}/tmp.${pid}
+    	      else                                # GNU
+    	          chmod --reference="${i}" ${TMP}/tmp.${pid}
+    	      fi
+    	      mv ${TMP}/tmp.${pid} "${i}"
+        fi
     fi
 done
 #
