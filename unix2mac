@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Converts unix, dos/windows and mac text file formats into each other.
 #
-# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2012- Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@
 # Created  Matthias Cuntz, 2012
 # Modified Matthias Cuntz, Dec 2014 - deal with spaces in file names.
 #          Matthias Cuntz, May 2015 - preserve file permissions
+#          Matthias Cuntz, Jan 2023 - /usr/env/bin bash instead of /bin/bash
+#                                   - correct stat -f '%OLp' from stat -f '%p'
 set -e
 #
 trap cleanup 1 2 3 6
@@ -41,7 +43,7 @@ if [ ! -f "${dprog}/mac2unix" ] ; then
     cd ${dprog}
     plist="mac2unix win2mac mac2win unix2win win2unix"
     for i in ${plist} ; do
-	if [ ! -f ${i} ] ; then ln -s unix2mac ${i} ; fi
+  if [ ! -f ${i} ] ; then ln -s unix2mac ${i} ; fi
     done
     cd ${isdir}
 fi
@@ -76,8 +78,8 @@ function cleanup ()
 quiet=0
 for i in $* ; do
     case ${i} in
-	-h | -help | --h | --help) usage; exit 2;;
-	-q | --quiet) quiet=1; shift;;
+  -h | -help | --h | --help) usage; exit 2;;
+  -q | --quiet) quiet=1; shift;;
     esac
 done
 #
@@ -135,7 +137,7 @@ fi
 # do perl script for every file
 for i in "$@" ; do
     if [ ${quiet} -eq 0 ] ; then
-	echo "${pprog}: converting file ${i} from ${form1} to ${form2} format ..."
+        echo "${pprog}: converting file ${i} from ${form1} to ${form2} format ..."
     fi
     ii=$(basename ${i})
     perl ${TMP}/unix2mac.${pid}.pl < "${i}" > "${TMP}/${ii}.${pid}"
@@ -144,17 +146,16 @@ for i in "$@" ; do
     # on Unix: chmod $(stat -f '%p' old) new
     set +e
     testit=$(stat -f '%p' "${i}" 2>&1 > /dev/null)
-    if [[ "${testit}z" == "z" ]] ; then GNU=0 ; else GNU=1 ; fi	
+    if [[ "${testit}z" == "z" ]] ; then GNU=0 ; else GNU=1 ; fi 
     set -e
     if [[ ${GNU} -eq 1 ]] ; then
-	chmod --reference="${i}" "${TMP}/${ii}.${pid}"
-	mv "${TMP}/${ii}.${pid}" "${i}"
+        chmod --reference="${i}" "${TMP}/${ii}.${pid}"
+        mv "${TMP}/${ii}.${pid}" "${i}"
     else
-	mod=$(stat -f '%p' "${i}")
-	mv "${TMP}/${ii}.${pid}" "${i}"
-	chmod ${mod} "${i}"
+        mod=$(stat -L -f '%OLp' "${i}")
+        mv "${TMP}/${ii}.${pid}" "${i}"
+        chmod ${mod} "${i}"
     fi
-
 done
 #
 # Clean
