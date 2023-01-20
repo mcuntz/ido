@@ -143,9 +143,9 @@ for i in "$@" ; do
     perl ${TMP}/unix2mac.${pid}.pl < "${i}" > "${TMP}/${ii}.${pid}"
     # file permissions, check for different utilities first
     # on GNU: chmod --reference=old new
-    # on Unix: chmod $(stat -f '%p' old) new
+    # on Unix: chmod $(stat -f '%OLp' old) new
     set +e
-    testit=$(stat -f '%p' "${i}" 2>&1 > /dev/null)
+    testit=$(stat -f '%OLp' "${i}" 2>&1 > /dev/null)
     if [[ "${testit}z" == "z" ]] ; then GNU=0 ; else GNU=1 ; fi 
     set -e
     if [[ ${GNU} -eq 1 ]] ; then

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Applies sed expression on several files, e.g. replacing a string in the files.
 #
@@ -26,6 +26,8 @@
 # Created  Matthias Cuntz, 2012
 # Modified Matthias Cuntz, May 2015 - preserve file permissions
 # Modified Matthias Cuntz, Nov 2022 - do not attempt replace on directory
+#          Matthias Cuntz, Jan 2023 - /usr/env/bin bash instead of /bin/bash
+#                                   - correct stat -f '%OLp' from stat -f '%p'
 #
 set -e
 #
@@ -99,13 +101,13 @@ for i in "$@" ; do
         else
     	      # file permissions, check for different utilities first
     	      # on GNU: chmod --reference=old new
-    	      # on Unix: chmod $(stat -f '%p' old) new
+    	      # on Unix: chmod $(stat -f '%OLp' old) new
     	      set +e
     	      # Recover error message if any, i.e. GNU
-    	      testit=$(stat -f '%p' "${i}" 2>&1 > /dev/null)
+            testit=$(stat -f '%OLp' "${i}" 2>&1 > /dev/null)
     	      set -e
     	      if [[ "${testit}z" == "z" ]] ; then # Unix
-    	          chmod $(stat -f '%p' "${i}") ${TMP}/tmp.${pid}
+    	          chmod $(stat -f '%OLp' "${i}") ${TMP}/tmp.${pid}
     	      else                                # GNU
     	          chmod --reference="${i}" ${TMP}/tmp.${pid}
     	      fi
