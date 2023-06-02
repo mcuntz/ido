@@ -12,6 +12,7 @@ All scripts have -h command line option displaying a help screen.
 | | cutbyname | Wrapper of cut command where one specifies the fields by name in a header line. |
 | | diffdirs | Compare two directories, giving formatted output. |
 | | ido\_bash\_completion | source ido\_bash\_complete in .bash\_profile to get completion of command line options of all ido scripts with tab. |
+| | ido\_lib.sh | Library with helper functions for bash scripts. |
 | | iinvert | Invert colours or colour channel in image using ImageMagick. |
 | | irename | Batch rename several files using an sed expression. |
 | | ireplace | Applies sed expression on several files, e.g. replacing a string in the files. |
@@ -39,5 +40,6 @@ All scripts have -h command line option displaying a help screen.
 | | % win2unix -q \*.txt |
 | | % pdfmerge -o all.pdf \*.pdf \*.ps |
 | | % pdfsplit in.pdf pages\_ |
+| | % source ipop\_lib.sh ; what='m' ; list=$(echo {a..z}) ; ihave=$(isin ${what} ${list}) ; if [[ -n ${ihave} ]] echo "I have an ${what}." ; fi |
 
-**Copyright (c) 2012-2019 Matthias Cuntz - mc (at) macu (dot) de**
+__Copyright (c) 2012-2023 Matthias Cuntz - mc (at) macu (dot) de__
