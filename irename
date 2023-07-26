@@ -27,6 +27,7 @@
 # Modified Matthias Cuntz, Jul 2023
 #              - /usr/bin/env bash instead of /bin/bash
 #              - allow escaped characters in input and output filenames
+#              - check that input and output names are different
 #
 set -e
 prog=$0
@@ -97,12 +98,14 @@ if [[ ${inter} -eq 1 ]] ; then iopt="-i" ; fi
 # Rename
 for i in "$@" ; do
     out=$(echo "${i}" | sed -e "${sedstr}")
-    if [[ ${total} -eq 0 && -f ${out} ]] ; then
-        printf "Error ${pprog}: outfile ${out} exists. Use -f to force overwrite.\n\n" 1>&2
-        usage 1>&2
-        exit 1
+    if [[ "${i}" != "${out}" ]] ; then
+        if [[ ${total} -eq 0 && -f ${out} ]] ; then
+            printf "Error ${pprog}: outfile ${out} exists. Use -f to force overwrite.\n\n" 1>&2
+            usage 1>&2
+            exit 1
+        fi
+        eval mv ${iopt} "'${i}'" "'${out}'"
     fi
-    eval mv ${iopt} "'${i}'" "'${out}'"
 done
 #
 exit 0
