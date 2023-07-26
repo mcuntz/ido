@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Batch rename several files using an sed expression.
 #
-# Copyright (c) 2012 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2012-2023 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,12 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
+# History
+# Created  Matthias Cuntz, 2012
+# Modified Matthias Cuntz, Jul 2023
+#              - /usr/bin/env bash instead of /bin/bash
+#              - allow escaped characters in filenames
 #
 set -e
 prog=$0
@@ -57,10 +63,10 @@ force=0
 inter=0
 while getopts "fhi" Option ; do
     case ${Option} in
-	f) force=1;;
-	h) usage; exit;;
-	i) inter=1;;
-	*) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+  f) force=1;;
+  h) usage; exit;;
+  i) inter=1;;
+  *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
     esac
 done
 shift $((${OPTIND} - 1))
@@ -89,14 +95,15 @@ iopt=""
 if [[ ${inter} -eq 1 ]] ; then iopt="-i" ; fi
 #
 # Rename
+echo "$@"
 for i in "$@" ; do
     out=$(echo "${i}" | sed -e "${sedstr}")
     if [[ ${total} -eq 0 && -f ${out} ]] ; then
-	printf "Error ${pprog}: outfile ${out} exists. Use -f to force overwrite.\n\n" 1>&2
-	usage 1>&2
-	exit 1
+        printf "Error ${pprog}: outfile ${out} exists. Use -f to force overwrite.\n\n" 1>&2
+        usage 1>&2
+        exit 1
     fi
-    mv ${iopt} "${i}" "${out}"
+    eval mv ${iopt} "'${i}'" "${out}"
 done
 #
 exit 0
