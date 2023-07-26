@@ -95,7 +95,6 @@ iopt=""
 if [[ ${inter} -eq 1 ]] ; then iopt="-i" ; fi
 #
 # Rename
-echo "$@"
 for i in "$@" ; do
     out=$(echo "${i}" | sed -e "${sedstr}")
     if [[ ${total} -eq 0 && -f ${out} ]] ; then
