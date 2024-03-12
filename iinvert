@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Invert colors or color channel in image using ImageMagick.
 #

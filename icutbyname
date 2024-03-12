@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Wrapper of cut command where one specifies the fields by name in a header line.
 #

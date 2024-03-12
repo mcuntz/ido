@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Merges several pdf or postscript files into one single pdf or postscript file.
 #

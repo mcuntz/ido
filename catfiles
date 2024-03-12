@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Concatenate files with identical headers. Leaves header of first file and removes all subsequent headers.
 #

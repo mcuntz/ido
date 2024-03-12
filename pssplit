@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Splits pdf or postscript file into files with individual pages using ghostscript.
 #

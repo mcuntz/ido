@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Clean internal LaTeX commands in latexdiff output to simple \add and \del commands.
 #

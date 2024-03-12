@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Wrapper for zip utility: if 'izip directory' then 'zip -r directory.zip directory' will be called.
 #
