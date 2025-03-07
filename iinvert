@@ -2,7 +2,7 @@
 
 # Invert colors or color channel in image using ImageMagick.
 #
-# Copyright (c) 2016-2022 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2016-2025 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -38,6 +38,8 @@
 # Modified Matthias Cuntz, 2024
 #     - inline invert did not work: file on wrong place in mogrify
 #     - moved density flag before input file
+# Modified Matthias Cuntz, 2025
+#     - use magick instead of magick convert and mogrify
 
 set -e
 
@@ -58,8 +60,10 @@ if [[ "${iprog}z" == "z" ]] ; then
     mprog="mogrify"
     cprog="convert"
 else
-    mprog="magick mogrify"
-    cprog="magick convert"
+    # mprog="magick mogrify"
+    # cprog="magick convert"
+    mprog="magick"
+    cprog="magick"
 fi
 
 function usage () {
