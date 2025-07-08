@@ -5,32 +5,39 @@
 # Library with helper functions for bash scripts
 #
 # Current functions:
-#     File / Directory
-#     ----------------
-#         abspath     absolute path name
-#         absfile     file name with absolute path name
-#         imv         mv file/directory if present
-#         irm         rm file/directory if present
+#   File / Directory
+#   ----------------
+#     abspath     absolute path name
+#     absfile     file name with absolute path name
+#     imv         mv file/directory if present
+#     irm         rm file/directory if present
 #
-#     File content
-#     ------------
-#         applysed    apply file with "a=b" as sed script
-#         csed        make sed command from comma-separated list: var1=str1,var2=str2
-#         ncvarlist   get list of variables in netcdf file
-#         text2sed    transform a simple file with "a = b" into sed command file
+#   File content
+#   ------------
+#     applysed    apply file with "a=b" as sed script
+#     csed        make sed command from comma-separated list: var1=str1,var2=str2
+#     ncvarlist   get list of variables in netcdf file
+#     text2sed    transform a simple file with "a = b" into sed command file
 #
-#     String
-#     ------
-#         findex      index of field in comma-separated list
-#         getfield    field in comma-separated list corresponding to name in a header line
-#         isin        check if first argument string is present in rest of arguments
-#         lower       make string all lowercase
-#         tolower     make string all lowercase
-#         upper       make string all uppercase
-#         toupper     make string all uppercase
+#   String
+#   ------
+#     findex      index of field in comma-separated list
+#     getfield    field in comma-separated list corresponding to name in a header line
+#     isin        check if first argument string is present in rest of arguments
+#     lower       make string all lowercase
+#     tolower     make string all lowercase
+#     upper       make string all uppercase
+#     toupper     make string all uppercase
 #
-# Written,  Mar 2021, Matthias Cuntz
-# Modified, Jun 2023, Matthias Cuntz - added to ido
+#   Misc
+#   ----
+#     gitid      get current git branch and commit
+
+# History
+#   Written, Mar 2021, Matthias Cuntz
+#   Added to ido, Jun 2023, Matthias Cuntz
+#   Bug: missing closing brace for applysed, Jul 2025, Matthias Cuntz
+#   Add gitid, Jul 2025, Matthias Cuntz
 #
 #----------------------------------------------------------------
 
@@ -110,6 +117,7 @@ function applysed()
         mv ${nfile}.$$ ${nfile}
     fi
     rm ${script}
+}
 
 #----------------------------------------------------------------
 # make sed command from comma-separated list: var1=str1,var2=str2
@@ -167,6 +175,21 @@ function getfield()
         out=""
     fi
     echo ${out}
+}
+
+#----------------------------------------------------------------
+# get current git branch and commit
+# returns space-separated list of branch commit
+#   codedir="../musica"
+#   id=$(gitid ${codedir})
+function gitid()
+{
+    idir=${PWD}
+    cd ${1}
+    branch=$(basename $(head -1 .git/HEAD | cut -d ':' -f 2))
+    commit=$(git log --abbrev-commit | head -1 | tr -s ' ' | cut -d ' ' -f 2)
+    cd ${idir}
+    echo ${branch} ${commit}
 }
 
 #----------------------------------------------------------------
