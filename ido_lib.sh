@@ -31,13 +31,15 @@
 #
 #   Misc
 #   ----
-#     gitid      get current git branch and commit
-
+#     echo_and_eval  echo string, then eval string
+#     gitid          get current git branch and commit
+#
 # History
 #   Written, Mar 2021, Matthias Cuntz
 #   Added to ido, Jun 2023, Matthias Cuntz
 #   Bug: missing closing brace for applysed, Jul 2025, Matthias Cuntz
 #   Add gitid, Jul 2025, Matthias Cuntz
+#   Add echo_and_eval, Jul 2025, Matthias Cuntz
 #
 #----------------------------------------------------------------
 
@@ -134,6 +136,14 @@ function csed()
         com="${com} -e s|${v}[[:blank:]]*=.*|${v}=${s}|"
     done
     printf "%s" "${com}"
+}
+
+#----------------------------------------------------------------
+# echo string, then eval string
+function echo_and_eval()
+{
+    echo $@
+    eval $@
 }
 
 #----------------------------------------------------------------
