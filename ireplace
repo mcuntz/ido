@@ -1,119 +1,154 @@
 #!/usr/bin/env bash
 #
-# Applies sed expression on several files, e.g. replacing a string in the files.
+# Applies sed expression on several files, e.g. replacing a string in
+# the files.
 #
-# Copyright (c) 2012-2015 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2012-2026 Matthias Cuntz - mc (at) macu (dot) de
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
 # History
 # Created  Matthias Cuntz, 2012
-# Modified Matthias Cuntz, May 2015 - preserve file permissions
-# Modified Matthias Cuntz, Nov 2022 - do not attempt replace on directory
-#          Matthias Cuntz, Jan 2023 - /usr/env/bin bash instead of /bin/bash
-#                                   - correct stat -f '%OLp' from stat -f '%p'
+# Modified Matthias Cuntz, May 2015
+#              - preserve file permissions
+# Modified Matthias Cuntz, Nov 2022
+#              - do not attempt replace on directory
+#          Matthias Cuntz, Jan 2023
+#              - /usr/env/bin bash instead of /bin/bash
+#              - correct stat -f '%OLp' from stat -f '%p'
+#          Matthias Cuntz, Mar 2026
+#              - add -e option(s)
+#              - sdiff to diff because of speed
 #
 set -e
-#
+
 trap cleanup 1 2 3 6
-#
+
 prog=$0
 pprog=$(basename ${prog})
 dprog=$(dirname ${prog})
 isdir=${PWD}
 pid=$$
 TMP=${TMPDIR:-"/tmp"}
+
+# --------------------------------------------------------------------
+# Functions
 #
-# --------------------------------------------------------------------------------------------------
 function usage () {
-    printf "${pprog} [-h] expr infiles\n"
-    printf "Applies sed expression on several files, e.g. replacing a string in the files.\n"
+    printf "${pprog} [-h] [-e expr] [expr] infiles\n"
+    printf "Applies sed expression on several files,"
+    printf " e.g. replacing a string in the files.\n"
     printf "\n"
     printf "Input\n"
-    printf "    expr        sed expression such as 's/str1/str2/' or 'y/abc/ABC/'.\n"
-    printf "    infiles     Files to apply sed expression interactively. Filenames can include spaces.\n"
+    printf "    expr         sed expression such as 's/str1/str2/' or"
+    printf " 'y/abc/ABC/'.\n"
+    printf "    infiles      Files to apply sed expression interactively."
+    printf " Filenames can include spaces.\n"
     printf "\n"
     printf "Options\n"
-    printf "    -h          Prints this help screen.\n"
+    printf "    -e sed_expr  Append the sed expression to the list of"
+    printf " commands for sed."
+    printf " Can be provided several times. If -e is provided, only"
+    printf " filenames and no sed expression should be given as command"
+    printf " line arguments.\n"
+    printf "    -h           Prints this help screen.\n"
     printf "\n"
     printf "Examples\n"
     printf "    ${pprog} '/exp/s/exp=.*/exp=moc01/' moc.*\n"
+    printf "    ${pprog} -e '/exp/s/exp=.*/exp=moc01/'"
+    printf " -e '/name/s/name=.*/name=itest/' moc.*\n"
     printf "\n"
-    printf "Copyright (c) 2012-2015 Matthias Cuntz - mc (at) macu (dot) de\n"
+    printf "Copyright (c) 2012-2026 Matthias Cuntz - mc (at) macu (dot) de\n"
 }
-#
+
 # cleanup
 function cleanup ()
 {
     \rm -f ${TMP}/*.${pid}*
     exit 1
 }
-# --------------------------------------------------------------------------------------------------
-# Start
+
+# --------------------------------------------------------------------
+# Command line arguments
 #
-#
+
 # Get options
-while getopts "h" Option ; do
+while getopts "e:h" Option ; do
     case ${Option} in
-	      h) usage; exit;;
-	      *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+      e) sedstr+=("${OPTARG}");;
+      h) usage; exit;;
+      *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2
+         usage 1>&2; exit 1;;
     esac
 done
 shift $((${OPTIND} - 1))
-#
-# Check sed expression and input files
-if [ $# -lt 2 ] ; then
-    printf "Error ${pprog}: sed expression and input files must be given.\n\n" 1>&2
+
+# Get sed expression
+if [[ -n ${sedstr} ]] ; then
+    sedcmd=""
+    for s in "${sedstr[@]}"; do
+	sedcmd="${sedcmd} -e ${s}"
+    done
+else
+    sedcmd="-e ${1}"
+    shift 1
+fi
+
+# Check that input file left after sed expression
+if [ $# -lt 1 ] ; then
+    printf "Error ${pprog}: sed expression and input files" 1>&2
+    printf " must be given.\n\n" 1>&2
     usage 1>&2
     exit 1
 fi
-#
-# Get sed expression
-sedstr=${1}
-shift 1
-#
+
+# --------------------------------------------------------------------
 # Replace
+#
+
 for i in "$@" ; do
     if [[ $(file "${i}" | cut -d ' ' -f 2) != 'directory' ]] ; then
-        sed -e "${sedstr}" "${i}" > ${TMP}/tmp.${pid}
+        eval sed "${sedcmd}" "${i}" > ${TMP}/tmp.${pid}
         set +e
-        tt=$(sdiff -s "${i}" ${TMP}/tmp.${pid})
+        tt=$(diff "${i}" ${TMP}/tmp.${pid})
         set -e
         if [[ "${tt}" == "" ]] ; then
             # delete if nothing was replaced
-    	      rm ${TMP}/tmp.${pid}
+            rm ${TMP}/tmp.${pid}
         else
-    	      # file permissions, check for different utilities first
-    	      # on GNU: chmod --reference=old new
-    	      # on Unix: chmod $(stat -f '%OLp' old) new
-    	      set +e
-    	      # Recover error message if any, i.e. GNU
+            # file permissions, check for different utilities first
+            # on GNU: chmod --reference=old new
+            # on Unix: chmod $(stat -f '%OLp' old) new
+            set +e
+            # Recover error message if any, i.e. GNU
             testit=$(stat -f '%OLp' "${i}" 2>&1 > /dev/null)
-    	      set -e
-    	      if [[ "${testit}z" == "z" ]] ; then # Unix
-    	          chmod $(stat -f '%OLp' "${i}") ${TMP}/tmp.${pid}
-    	      else                                # GNU
-    	          chmod --reference="${i}" ${TMP}/tmp.${pid}
-    	      fi
-    	      mv ${TMP}/tmp.${pid} "${i}"
+            set -e
+            if [[ "${testit}z" == "z" ]] ; then # Unix
+                chmod $(stat -f '%OLp' "${i}") ${TMP}/tmp.${pid}
+            else                                # GNU
+                chmod --reference="${i}" ${TMP}/tmp.${pid}
+            fi
+            mv ${TMP}/tmp.${pid} "${i}"
         fi
     fi
 done
-#
+
 exit 0
