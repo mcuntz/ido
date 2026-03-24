@@ -104,11 +104,11 @@ shift $((${OPTIND} - 1))
 # Get sed expression
 if [[ -n ${sedstr} ]] ; then
     sedcmd=""
-    for s in "${sedstr[@]}"; do
-	sedcmd="${sedcmd} -e ${s}"
+    for s in "${sedstr[@]}" ; do
+	sedcmd="${sedcmd} -e '${s}'"
     done
 else
-    sedcmd="-e ${1}"
+    sedcmd="-e '${1}'"
     shift 1
 fi
 
@@ -126,6 +126,7 @@ fi
 
 for i in "$@" ; do
     if [[ $(file "${i}" | cut -d ' ' -f 2) != 'directory' ]] ; then
+	# echo sed "${sedcmd}" "${i}"
         eval sed "${sedcmd}" "${i}" > ${TMP}/tmp.${pid}
         set +e
         tt=$(diff "${i}" ${TMP}/tmp.${pid})
