@@ -105,10 +105,10 @@ shift $((${OPTIND} - 1))
 if [[ -n ${sedstr} ]] ; then
     sedcmd=""
     for s in "${sedstr[@]}" ; do
-	sedcmd="${sedcmd} -e '${s}'"
+	sedcmd="${sedcmd} -e \"${s}\""
     done
 else
-    sedcmd="-e '${1}'"
+    sedcmd="-e \"${1}\""
     shift 1
 fi
 
